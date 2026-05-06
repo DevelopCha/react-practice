@@ -1,11 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { authApi } from '../api/authApi';
-import { ApiActivityList } from '../components/ApiActivityList';
-import { ApiDetailInspector } from '../components/ApiDetailInspector';
-import { CallStackViewer } from '../components/CallStackViewer';
-import { RawConsoleDrawer } from '../components/RawConsoleDrawer';
-import { StateDiffViewer } from '../components/StateDiffViewer';
-import { TraceSessionViewer } from '../components/TraceSessionViewer';
+import { TraceMonitorLayout } from '../components/TraceMonitorLayout';
 import { useAuthDispatch, useAuthState } from '../context/AuthContext';
 import { AUTH_RESTORE, LOGIN_SUCCESS, LOGOUT } from '../reducers/authActionTypes';
 import { addFlowStep } from '../runtime/flowTracker';
@@ -146,18 +141,10 @@ export function LoginFlowPage() {
   };
 
   return (
-    <main className="login-flow-page">
-      <section className="chapter-heading">
-        <div>
-          <h1>Chapter 2 - Login Flow</h1>
-          <p>Click login and watch Context, reducer, API, mock server, and rerender lifecycle move together.</p>
-        </div>
-      </section>
-
-      <section className="runtime-monitor-layout">
-        <aside className="mini-action-column">
-          <section className="panel mini-action-panel">
-            <div className="panel-title">Mini Action Panel</div>
+    <TraceMonitorLayout
+      title="Chapter 2 - Login Flow"
+      subtitle="Click login and watch Context, reducer, API, mock server, and rerender lifecycle move together."
+      actionPanel={
             <form className="mini-stack" onSubmit={handleSubmit}>
               <label>
                 ID
@@ -179,11 +166,9 @@ export function LoginFlowPage() {
                 </button>
               </div>
             </form>
-          </section>
-
-          <section className="panel learning-notes-panel compact">
-            <div className="panel-title">Click Anatomy</div>
-            <div className="learning-notes">
+      }
+      notes={
+        <>
               <p>
                 Component: <code>src/pages/LoginFlowPage.tsx</code>
               </p>
@@ -199,23 +184,8 @@ export function LoginFlowPage() {
               <p>
                 Mock: <code>?mock=login:200:login-complete</code> or <code>?mock=login:404:login-failed</code>
               </p>
-            </div>
-          </section>
-        </aside>
-
-        <section className="runtime-monitoring-area">
-          <TraceSessionViewer />
-          <div className="trace-api-grid">
-            <ApiActivityList />
-            <ApiDetailInspector />
-          </div>
-          <div className="trace-bottom-grid">
-            <StateDiffViewer />
-            <CallStackViewer />
-          </div>
-          <RawConsoleDrawer />
-        </section>
-      </section>
-    </main>
+        </>
+      }
+    />
   );
 }

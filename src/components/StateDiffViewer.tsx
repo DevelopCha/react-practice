@@ -5,9 +5,15 @@ function stringify(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
-export function StateDiffViewer() {
+type StateDiffViewerProps = {
+  rawState?: unknown;
+  rawStateLabel?: string;
+};
+
+export function StateDiffViewer({ rawState, rawStateLabel = 'AuthContext' }: StateDiffViewerProps) {
   const authState = useAuthState();
   const { stateDiff } = useRuntime();
+  const visibleRawState = rawState ?? authState;
 
   return (
     <section className="panel state-diff-panel">
@@ -24,8 +30,8 @@ export function StateDiffViewer() {
         ))}
       </div>
       <details className="raw-state-details">
-        <summary>Raw AuthContext JSON</summary>
-        <pre>{stringify(authState)}</pre>
+        <summary>Raw {rawStateLabel} JSON</summary>
+        <pre>{stringify(visibleRawState)}</pre>
       </details>
     </section>
   );

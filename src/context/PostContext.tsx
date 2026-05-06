@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useReducer, type Dispatch, type ReactNode } from 'react';
 import { postApi } from '../api/postApi';
 import {
   ADD_POST_REQUEST,
@@ -10,6 +10,7 @@ import {
   REMOVE_POST_REQUEST,
   REMOVE_POST_SUCCESS,
 } from '../reducers/postActionTypes';
+import type { PostAction } from '../reducers/postActionTypes';
 import { initialPostState, postReducer } from '../reducers/postReducer';
 import type { MockServerFailure } from '../runtime/mockServer';
 import type { Post, PostState } from '../types/post';
@@ -22,6 +23,8 @@ type PostContextValue = {
 };
 
 const PostContext = createContext<PostContextValue | null>(null);
+export const PostStateContext = createContext<PostState | null>(null);
+export const PostDispatchContext = createContext<Dispatch<PostAction> | null>(null);
 
 function getErrorMessage(error: unknown) {
   return (error as MockServerFailure).response?.message || 'request failed';
@@ -71,7 +74,13 @@ export function PostProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({ state, fetchPosts, createPost, deletePost }), [state]);
 
-  return <PostContext.Provider value={value}>{children}</PostContext.Provider>;
+  return (
+    <PostStateContext.Provider value={state}>
+      <PostDispatchContext.Provider value={dispatch}>
+        <PostContext.Provider value={value}>{children}</PostContext.Provider>
+      </PostDispatchContext.Provider>
+    </PostStateContext.Provider>
+  );
 }
 
 export function usePosts() {
@@ -82,4 +91,24 @@ export function usePosts() {
   }
 
   return value;
+}
+
+export function usePostState() {
+  const state = useContext(PostStateContext);
+
+  if (!state) {
+    throw new Error('usePostState must be used inside PostProvider');
+  }
+
+  return state;
+}
+
+export function usePostDispatch() {
+  const dispatch = useContext(PostDispatchContext);
+
+  if (!dispatch) {
+    throw new Error('usePostDispatch must be used inside PostProvider');
+  }
+
+  return dispatch;
 }

@@ -1,35 +1,62 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { LearningLayout } from '../components/LearningLayout';
+import { postApi } from '../api/postApi';
+import { TraceMonitorLayout } from '../components/TraceMonitorLayout';
 import { useCommon } from '../context/CommonContext';
-import { usePosts } from '../context/PostContext';
+import { usePostDispatch, usePostState } from '../context/PostContext';
+import {
+  ADD_POST_REQUEST,
+  ADD_POST_SUCCESS,
+  FETCH_POSTS_SUCCESS,
+  POST_MUTATION_FAILURE,
+  REMOVE_POST_REQUEST,
+  REMOVE_POST_SUCCESS,
+} from '../reducers/postActionTypes';
+import { addFlowStep } from '../runtime/flowTracker';
+import { addLog } from '../runtime/logger';
+import type { MockServerFailure } from '../runtime/mockServer';
 import { useRuntime } from '../runtime/RuntimeContext';
-import type { FlowStep } from '../types/runtime';
-
-const steps: FlowStep[] = [
-  { id: 'input', label: 'form input changed' },
-  { id: 'create-handler', label: 'handleCreateSubmit() executed' },
-  { id: 'create-api', label: 'postApi.createPost() called' },
-  { id: 'write-mock', label: 'mockServer write response' },
-  { id: 'add-dispatch', label: 'dispatch(ADD_POST)' },
-  { id: 'delete-handler', label: 'handleDeleteClick() executed' },
-  { id: 'delete-api', label: 'postApi.deletePost() called' },
-  { id: 'delete-mock', label: 'mockServer delete response' },
-  { id: 'remove-dispatch', label: 'dispatch(REMOVE_POST)' },
-  { id: 'render', label: 'list rerendered' },
-];
 
 export function ChapterMutationPage() {
   const [title, setTitle] = useState('Reducer action note');
   const [body, setBody] = useState('Mutation requests update Context through dispatch.');
-  const { state, fetchPosts, createPost, deletePost } = usePosts();
+  const [pending, setPending] = useState(false);
+  const postState = usePostState();
+  const postDispatch = usePostDispatch();
   const { setActiveChapter } = useCommon();
-  const { resetRuntime, runEvents, appendLog, setCallStack } = useRuntime();
+  const { beginTraceSession, captureStateDiff, refreshRuntimeSnapshot, setCallStack } = useRuntime();
 
   useEffect(() => {
     setActiveChapter('Chapter 4 - Create/Delete Mutation');
-    resetRuntime(steps);
-    fetchPosts();
-  }, [fetchPosts, resetRuntime, setActiveChapter]);
+  }, [setActiveChapter]);
+
+  const loadSamples = () => {
+    const beforeState = postState;
+    beginTraceSession('Load Sample Posts', 'loadSamples()', [
+      'ChapterMutationPage.loadSamples',
+      'postApi.fetchPosts',
+      'axiosClient.get',
+      'mockServer.request',
+      'dispatch(FETCH_POSTS_SUCCESS)',
+      'postReducer',
+    ]);
+    setPending(true);
+
+    postApi
+      .fetchPosts()
+      .then((response) => {
+        addLog('Dispatch', 'dispatch(FETCH_POSTS_SUCCESS)');
+        addFlowStep('dispatch FETCH_POSTS_SUCCESS');
+        postDispatch({ type: FETCH_POSTS_SUCCESS, payload: { posts: response.data, message: response.message } });
+        addFlowStep('postReducer loads sample posts');
+        captureStateDiff(beforeState, { posts: response.data, loading: false, error: null, message: response.message });
+      })
+      .finally(() => {
+        setPending(false);
+        addLog('Render', 'Mutation list rerendered after sample load');
+        addFlowStep('rerender complete');
+        refreshRuntimeSnapshot();
+      });
+  };
 
   const handleInput = (field: 'title' | 'body', value: string) => {
     if (field === 'title') {
@@ -38,86 +65,164 @@ export function ChapterMutationPage() {
       setBody(value);
     }
     setCallStack(['onChange()', 'setLocalFormState()']);
-    appendLog('Handler', `${field} input changed`);
   };
 
-  const handleCreate = async (event: FormEvent) => {
+  const handleCreate = (event: FormEvent) => {
     event.preventDefault();
-    await runEvents([
-      { stepId: 'create-handler', kind: 'Handler', message: 'handleCreateSubmit() executed', callStack: ['handleCreateSubmit()'] },
-      {
-        stepId: 'create-api',
-        kind: 'API',
-        message: 'postApi.createPost() -> axiosClient.post("/posts")',
-        callStack: ['handleCreateSubmit()', 'postApi.createPost()', 'axiosClient.post()'],
-      },
+    const beforeState = postState;
+    setPending(true);
+
+    beginTraceSession('Create Post', 'handleCreateSubmit()', [
+      'ChapterMutationPage.handleCreateSubmit',
+      'dispatch(ADD_POST_REQUEST)',
+      'postApi.createPost',
+      'axiosClient.post',
+      'mockServer.request',
+      'dispatch(ADD_POST_SUCCESS | POST_MUTATION_FAILURE)',
+      'postReducer',
     ]);
-    await createPost({ title, body });
-    await runEvents([
-      {
-        stepId: 'write-mock',
-        kind: 'Mock',
-        message: 'write mock resolved or rejected from query string config',
-        callStack: ['handleCreateSubmit()', 'postApi.createPost()', 'axiosClient.post()', 'mockServer.request()'],
-      },
-      { stepId: 'add-dispatch', kind: 'Dispatch', message: 'ADD_POST_SUCCESS or POST_MUTATION_FAILURE dispatched' },
-      { stepId: 'render', kind: 'Render', message: 'Post list rerendered after create mutation', callStack: [] },
-    ]);
+
+    addLog('Dispatch', 'dispatch(ADD_POST_REQUEST)');
+    addFlowStep('dispatch ADD_POST_REQUEST');
+    postDispatch({ type: ADD_POST_REQUEST });
+
+    postApi
+      .createPost({ title, body })
+      .then((response) => {
+        addLog('Dispatch', 'dispatch(ADD_POST_SUCCESS)');
+        addFlowStep('dispatch ADD_POST_SUCCESS');
+        postDispatch({ type: ADD_POST_SUCCESS, payload: { post: response.data, message: response.message } });
+        addFlowStep('postReducer prepends created post');
+        captureStateDiff(beforeState, {
+          posts: [response.data, ...beforeState.posts],
+          loading: false,
+          error: null,
+          message: response.message,
+        });
+      })
+      .catch((error: MockServerFailure) => {
+        const errorMessage = error.response?.message ?? 'create failed';
+        addLog('Dispatch', 'dispatch(POST_MUTATION_FAILURE)');
+        addFlowStep('dispatch POST_MUTATION_FAILURE');
+        postDispatch({ type: POST_MUTATION_FAILURE, payload: { error: errorMessage } });
+        addFlowStep('postReducer renders mutation error');
+        captureStateDiff(beforeState, { ...beforeState, loading: false, error: errorMessage, message: null });
+      })
+      .finally(() => {
+        setPending(false);
+        addLog('Render', 'Post list rerendered after create');
+        addFlowStep('rerender complete');
+        refreshRuntimeSnapshot();
+      });
   };
 
-  const handleDelete = async (id: number) => {
-    await runEvents([
-      { stepId: 'delete-handler', kind: 'Handler', message: `handleDeleteClick(${id}) executed`, callStack: ['handleDeleteClick()'] },
-      {
-        stepId: 'delete-api',
-        kind: 'API',
-        message: `postApi.deletePost(${id}) -> axiosClient.delete()`,
-        callStack: ['handleDeleteClick()', 'postApi.deletePost()', 'axiosClient.delete()'],
-      },
+  const handleDelete = (id: number) => {
+    const beforeState = postState;
+    setPending(true);
+
+    beginTraceSession('Delete Post', `handleDeleteClick(${id})`, [
+      'ChapterMutationPage.handleDeleteClick',
+      'dispatch(REMOVE_POST_REQUEST)',
+      'postApi.deletePost',
+      'axiosClient.delete',
+      'mockServer.request',
+      'dispatch(REMOVE_POST_SUCCESS | POST_MUTATION_FAILURE)',
+      'postReducer',
     ]);
-    await deletePost(id);
-    await runEvents([
-      {
-        stepId: 'delete-mock',
-        kind: 'Mock',
-        message: 'delete mock resolved or rejected from query string config',
-        callStack: ['handleDeleteClick()', 'postApi.deletePost()', 'axiosClient.delete()', 'mockServer.request()'],
-      },
-      { stepId: 'remove-dispatch', kind: 'Dispatch', message: 'REMOVE_POST_SUCCESS or POST_MUTATION_FAILURE dispatched' },
-      { stepId: 'render', kind: 'Render', message: 'Post list rerendered after delete mutation', callStack: [] },
-    ]);
+
+    addLog('Dispatch', 'dispatch(REMOVE_POST_REQUEST)');
+    addFlowStep('dispatch REMOVE_POST_REQUEST');
+    postDispatch({ type: REMOVE_POST_REQUEST });
+
+    postApi
+      .deletePost(id)
+      .then((response) => {
+        addLog('Dispatch', 'dispatch(REMOVE_POST_SUCCESS)');
+        addFlowStep('dispatch REMOVE_POST_SUCCESS');
+        postDispatch({ type: REMOVE_POST_SUCCESS, payload: { id: response.data.deletedId, message: response.message } });
+        addFlowStep('postReducer removes deleted post');
+        captureStateDiff(beforeState, {
+          posts: beforeState.posts.filter((post) => post.id !== response.data.deletedId),
+          loading: false,
+          error: null,
+          message: response.message,
+        });
+      })
+      .catch((error: MockServerFailure) => {
+        const errorMessage = error.response?.message ?? 'delete failed';
+        addLog('Dispatch', 'dispatch(POST_MUTATION_FAILURE)');
+        addFlowStep('dispatch POST_MUTATION_FAILURE');
+        postDispatch({ type: POST_MUTATION_FAILURE, payload: { error: errorMessage } });
+        addFlowStep('postReducer renders mutation error');
+        captureStateDiff(beforeState, { ...beforeState, loading: false, error: errorMessage, message: null });
+      })
+      .finally(() => {
+        setPending(false);
+        addLog('Render', 'Post list rerendered after delete');
+        addFlowStep('rerender complete');
+        refreshRuntimeSnapshot();
+      });
   };
 
   return (
-    <LearningLayout title="Chapter 4 - Create/Delete Mutation" subtitle="Create and delete posts through API modules and reducer dispatch.">
-      <div className="mini-stack">
-        <form className="mini-stack" onSubmit={handleCreate}>
-          <label>
-            Title
-            <input value={title} onChange={(event) => handleInput('title', event.target.value)} />
-          </label>
-          <label>
-            Body
-            <textarea value={body} onChange={(event) => handleInput('body', event.target.value)} />
-          </label>
-          <button type="submit" disabled={state.loading}>
-            Create post
+    <TraceMonitorLayout
+      title="Chapter 4 - Create/Delete Mutation"
+      subtitle="Run create/delete mutations and inspect payloads, reducer actions, and PostContext diffs."
+      rawState={postState}
+      rawStateLabel="PostContext"
+      actionPanel={
+        <div className="mini-stack">
+          <button type="button" onClick={loadSamples} disabled={pending}>
+            Load sample posts
           </button>
-        </form>
-        {state.error && <p className="error-text">{state.error}</p>}
-        {state.message && <p className="success-text">{state.message}</p>}
-        <ul className="post-list">
-          {state.posts.map((post) => (
-            <li key={post.id}>
-              <strong>{post.title}</strong>
-              <span>{post.body}</span>
-              <button type="button" onClick={() => handleDelete(post.id)} disabled={state.loading}>
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </LearningLayout>
+          <form className="mini-stack" onSubmit={handleCreate}>
+            <label>
+              Title
+              <input value={title} onChange={(event) => handleInput('title', event.target.value)} />
+            </label>
+            <label>
+              Body
+              <textarea value={body} onChange={(event) => handleInput('body', event.target.value)} />
+            </label>
+            <button type="submit" disabled={pending}>
+              Create post
+            </button>
+          </form>
+          {postState.error && <p className="error-text">{postState.error}</p>}
+          <ul className="post-list compact">
+            {postState.posts.map((post) => (
+              <li key={post.id}>
+                <strong>{post.title}</strong>
+                <button type="button" onClick={() => handleDelete(post.id)} disabled={pending}>
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      }
+      notes={
+        <>
+          <p>
+            Component: <code>src/pages/ChapterMutationPage.tsx</code>
+          </p>
+          <p>
+            API: <code>src/api/postApi.ts</code>
+          </p>
+          <p>
+            Reducer: <code>src/reducers/postReducer.ts</code>
+          </p>
+          <p>
+            Create path: <code>handleCreateSubmit -&gt; postApi.createPost -&gt; axiosClient.post -&gt; mockServer.request -&gt; ADD_POST_SUCCESS</code>
+          </p>
+          <p>
+            Delete path: <code>handleDeleteClick -&gt; postApi.deletePost -&gt; axiosClient.delete -&gt; mockServer.request -&gt; REMOVE_POST_SUCCESS</code>
+          </p>
+          <p>
+            Mock: <code>?mock=write:500:create-failed,delete:500:delete-failed</code>
+          </p>
+        </>
+      }
+    />
   );
 }

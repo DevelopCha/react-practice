@@ -1,75 +1,122 @@
-import { useEffect } from 'react';
-import { LearningLayout } from '../components/LearningLayout';
+import { useEffect, useState } from 'react';
+import { postApi } from '../api/postApi';
+import { TraceMonitorLayout } from '../components/TraceMonitorLayout';
 import { useCommon } from '../context/CommonContext';
-import { usePosts } from '../context/PostContext';
+import { usePostDispatch, usePostState } from '../context/PostContext';
+import { FETCH_POSTS_FAILURE, FETCH_POSTS_REQUEST, FETCH_POSTS_SUCCESS } from '../reducers/postActionTypes';
+import { addFlowStep } from '../runtime/flowTracker';
+import { addLog } from '../runtime/logger';
+import type { MockServerFailure } from '../runtime/mockServer';
 import { useRuntime } from '../runtime/RuntimeContext';
-import type { FlowStep } from '../types/runtime';
-
-const steps: FlowStep[] = [
-  { id: 'mount', label: 'PostListPage mounted' },
-  { id: 'effect', label: 'useEffect fetch executed' },
-  { id: 'dispatch-request', label: 'dispatch(FETCH_POSTS_REQUEST)' },
-  { id: 'api', label: 'postApi.fetchPosts() called' },
-  { id: 'axios', label: 'axiosClient.get() requested' },
-  { id: 'mock', label: 'mockServer returns list response' },
-  { id: 'dispatch-success', label: 'dispatch(FETCH_POSTS_SUCCESS)' },
-  { id: 'render', label: 'loading/success/error UI rendered' },
-];
 
 export function ChapterListPage() {
-  const { state, fetchPosts } = usePosts();
+  const [pending, setPending] = useState(false);
+  const postState = usePostState();
+  const postDispatch = usePostDispatch();
   const { setActiveChapter } = useCommon();
-  const { resetRuntime, runEvents } = useRuntime();
+  const { beginTraceSession, captureStateDiff, refreshRuntimeSnapshot } = useRuntime();
 
   useEffect(() => {
     setActiveChapter('Chapter 3 - Data Fetch List');
-    resetRuntime(steps);
-    runEvents([{ stepId: 'mount', kind: 'Mount', message: 'PostListPage mounted' }]);
-  }, [resetRuntime, runEvents, setActiveChapter]);
+  }, [setActiveChapter]);
 
-  const runFetch = async () => {
-    await runEvents([
-      { stepId: 'effect', kind: 'Effect', message: 'useEffect fetchPosts executed', callStack: ['useEffect()', 'fetchPosts()'] },
-      { stepId: 'dispatch-request', kind: 'Dispatch', message: 'FETCH_POSTS_REQUEST dispatched' },
-      { stepId: 'api', kind: 'API', message: 'postApi.fetchPosts() called', callStack: ['fetchPosts()', 'postApi.fetchPosts()'] },
-      {
-        stepId: 'axios',
-        kind: 'API',
-        message: 'axiosClient.get("/posts") requested',
-        callStack: ['fetchPosts()', 'postApi.fetchPosts()', 'axiosClient.get()'],
-      },
+  const runFetch = () => {
+    const beforeState = postState;
+    setPending(true);
+
+    beginTraceSession('Fetch Posts', 'handleFetchPosts()', [
+      'ChapterListPage.handleFetchPosts',
+      'dispatch(FETCH_POSTS_REQUEST)',
+      'postApi.fetchPosts',
+      'axiosClient.get',
+      'mockServer.request',
+      'dispatch(FETCH_POSTS_SUCCESS | FETCH_POSTS_FAILURE)',
+      'postReducer',
     ]);
-    await fetchPosts();
-    await runEvents([
-      {
-        stepId: 'mock',
-        kind: 'Mock',
-        message: 'users mock resolved or rejected from query string config',
-        callStack: ['fetchPosts()', 'postApi.fetchPosts()', 'axiosClient.get()', 'mockServer.request()'],
-      },
-      { stepId: 'dispatch-success', kind: 'Dispatch', message: 'FETCH_POSTS_SUCCESS or FETCH_POSTS_FAILURE dispatched' },
-      { stepId: 'render', kind: 'Render', message: 'List UI rerendered with loading, success, error, or empty state', callStack: [] },
-    ]);
+
+    addLog('Dispatch', 'dispatch(FETCH_POSTS_REQUEST)');
+    addFlowStep('dispatch FETCH_POSTS_REQUEST');
+    postDispatch({ type: FETCH_POSTS_REQUEST });
+
+    postApi
+      .fetchPosts()
+      .then((response) => {
+        addLog('Dispatch', 'dispatch(FETCH_POSTS_SUCCESS)');
+        addFlowStep('dispatch FETCH_POSTS_SUCCESS');
+        postDispatch({ type: FETCH_POSTS_SUCCESS, payload: { posts: response.data, message: response.message } });
+        addFlowStep('postReducer stores fetched posts');
+        captureStateDiff(beforeState, {
+          posts: response.data,
+          loading: false,
+          error: null,
+          message: response.message,
+        });
+      })
+      .catch((error: MockServerFailure) => {
+        const errorMessage = error.response?.message ?? 'fetch failed';
+        addLog('Dispatch', 'dispatch(FETCH_POSTS_FAILURE)');
+        addFlowStep('dispatch FETCH_POSTS_FAILURE');
+        postDispatch({ type: FETCH_POSTS_FAILURE, payload: { error: errorMessage } });
+        addFlowStep('postReducer renders error state');
+        captureStateDiff(beforeState, {
+          posts: [],
+          loading: false,
+          error: errorMessage,
+          message: null,
+        });
+      })
+      .finally(() => {
+        setPending(false);
+        addLog('Render', 'Post list rerendered after fetch');
+        addFlowStep('list rerender complete');
+        refreshRuntimeSnapshot();
+      });
   };
 
   return (
-    <LearningLayout title="Chapter 3 - Data Fetch List" subtitle="Trigger a page-style fetch and inspect every state branch.">
-      <div className="mini-stack">
-        <button type="button" onClick={runFetch} disabled={state.loading}>
-          {state.loading ? 'Fetching...' : 'Fetch posts'}
-        </button>
-        {state.loading && <p className="muted">Loading state is true.</p>}
-        {state.error && <p className="error-text">{state.error}</p>}
-        {!state.loading && !state.error && state.posts.length === 0 && <p className="muted">Empty state: no posts loaded.</p>}
-        <ul className="post-list">
-          {state.posts.map((post) => (
-            <li key={post.id}>
-              <strong>{post.title}</strong>
-              <span>{post.body}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </LearningLayout>
+    <TraceMonitorLayout
+      title="Chapter 3 - Data Fetch List"
+      subtitle="Fetch a list and inspect request, mock response, reducer action, and post state diff."
+      rawState={postState}
+      rawStateLabel="PostContext"
+      actionPanel={
+        <div className="mini-stack">
+          <button type="button" onClick={runFetch} disabled={pending}>
+            {pending ? 'Fetching...' : 'Fetch posts'}
+          </button>
+          {postState.error && <p className="error-text">{postState.error}</p>}
+          <div className="status-box">
+            <strong>Current posts</strong>
+            <span>{postState.posts.length} loaded</span>
+          </div>
+          <ul className="post-list compact">
+            {postState.posts.map((post) => (
+              <li key={post.id}>
+                <strong>{post.title}</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+      }
+      notes={
+        <>
+          <p>
+            Component: <code>src/pages/ChapterListPage.tsx</code>
+          </p>
+          <p>
+            API: <code>src/api/postApi.ts</code>
+          </p>
+          <p>
+            Reducer: <code>src/reducers/postReducer.ts</code>
+          </p>
+          <p>
+            Path: <code>handleFetchPosts -&gt; dispatch request -&gt; postApi.fetchPosts -&gt; axiosClient.get -&gt; mockServer.request -&gt; dispatch success/failure -&gt; postReducer</code>
+          </p>
+          <p>
+            Mock: <code>?mock=users:200:list-ok</code> or <code>?mock=users:404:list-failed</code>
+          </p>
+        </>
+      }
+    />
   );
 }

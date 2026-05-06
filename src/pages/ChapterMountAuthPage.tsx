@@ -1,76 +1,118 @@
-import { useEffect } from 'react';
-import { LearningLayout } from '../components/LearningLayout';
-import { useAuth } from '../context/AuthContext';
+import { useEffect, useState } from 'react';
+import { authApi } from '../api/authApi';
+import { TraceMonitorLayout } from '../components/TraceMonitorLayout';
+import { useAuthDispatch, useAuthState } from '../context/AuthContext';
 import { useCommon } from '../context/CommonContext';
+import { AUTH_RESTORE, LOGOUT } from '../reducers/authActionTypes';
+import { addFlowStep } from '../runtime/flowTracker';
+import { addLog } from '../runtime/logger';
 import { useRuntime } from '../runtime/RuntimeContext';
-import type { FlowStep, RuntimeEvent } from '../types/runtime';
-
-const steps: FlowStep[] = [
-  { id: 'mount', label: 'App.tsx mounted' },
-  { id: 'effect', label: 'useEffect auth init executed' },
-  { id: 'api', label: 'authApi.check() called' },
-  { id: 'axios', label: 'axiosClient.get() requested' },
-  { id: 'mock', label: 'mockServer returns response' },
-  { id: 'dispatch', label: 'dispatch(AUTH_RESTORE)' },
-  { id: 'reducer', label: 'authReducer updates state' },
-  { id: 'render', label: 'Header rerendered' },
-];
+import type { MockServerFailure } from '../runtime/mockServer';
 
 export function ChapterMountAuthPage() {
-  const { state, checkAuth } = useAuth();
+  const [pending, setPending] = useState(false);
+  const authState = useAuthState();
+  const authDispatch = useAuthDispatch();
   const { setActiveChapter } = useCommon();
-  const { resetRuntime, runEvents, appendLog, setCallStack } = useRuntime();
+  const { beginTraceSession, captureStateDiff, refreshRuntimeSnapshot } = useRuntime();
 
   useEffect(() => {
     setActiveChapter('Chapter 1 - App Mount & Auth Check');
-    resetRuntime(steps);
-    runEvents([{ stepId: 'mount', kind: 'Mount', message: 'App.tsx mounted' }]);
-  }, [resetRuntime, runEvents, setActiveChapter]);
+  }, [setActiveChapter]);
 
-  const runAuthCheck = async () => {
-    const beforeEvents: RuntimeEvent[] = [
-      { stepId: 'effect', kind: 'Effect', message: 'useEffect auth init executed', callStack: ['useEffect()', 'checkAuth()'] },
-      { stepId: 'api', kind: 'API', message: 'authApi.check() called', callStack: ['checkAuth()', 'authApi.check()'] },
-      {
-        stepId: 'axios',
-        kind: 'API',
-        message: 'axiosClient.get("/auth/check") requested',
-        callStack: ['checkAuth()', 'authApi.check()', 'axiosClient.get()'],
-      },
-    ];
+  const runAuthCheck = () => {
+    const beforeState = authState;
+    setPending(true);
 
-    await runEvents(beforeEvents);
-    await checkAuth();
-
-    if (state.error) {
-      appendLog('Error', `Previous auth error was visible before this run: ${state.error}`);
-    }
-
-    await runEvents([
-      {
-        stepId: 'mock',
-        kind: 'Mock',
-        message: 'auth mock resolved or rejected from query string config',
-        callStack: ['checkAuth()', 'authApi.check()', 'axiosClient.get()', 'mockServer.request()'],
-      },
-      { stepId: 'dispatch', kind: 'Dispatch', message: 'AUTH_RESTORE or LOGIN_FAILURE dispatched' },
-      { stepId: 'reducer', kind: 'Reducer', message: 'authReducer calculated next AuthContext state' },
-      { stepId: 'render', kind: 'Render', message: 'Header rerendered from AuthContext update', callStack: [] },
+    beginTraceSession('Auth Check', 'handleAuthCheck()', [
+      'ChapterMountAuthPage.handleAuthCheck',
+      'authApi.checkAuth',
+      'axiosClient.get',
+      'mockServer.request',
+      'dispatch(AUTH_RESTORE | LOGOUT)',
+      'authReducer',
     ]);
+
+    addLog('Effect', 'manual auth initialization started');
+    addFlowStep('auth initialization effect simulated');
+
+    authApi
+      .checkAuth()
+      .then((response) => {
+        addLog('Dispatch', 'dispatch(AUTH_RESTORE)');
+        addFlowStep('dispatch AUTH_RESTORE');
+        authDispatch({ type: AUTH_RESTORE, payload: { userInfo: response.data, message: response.message } });
+        addFlowStep('authReducer restores session');
+        captureStateDiff(beforeState, {
+          ...beforeState,
+          isLogin: true,
+          userInfo: response.data,
+          authChecked: true,
+          loading: false,
+          error: null,
+          message: response.message,
+        });
+      })
+      .catch((error: MockServerFailure) => {
+        const errorMessage = error.response?.message ?? 'auth check failed';
+        addLog('Dispatch', 'dispatch(LOGOUT) fallback');
+        addFlowStep('dispatch LOGOUT fallback');
+        authDispatch({ type: LOGOUT, payload: { error: errorMessage } });
+        addFlowStep('authReducer marks authChecked fallback');
+        captureStateDiff(beforeState, {
+          isLogin: false,
+          userInfo: null,
+          authChecked: true,
+          loading: false,
+          error: errorMessage,
+          message: null,
+        });
+      })
+      .finally(() => {
+        setPending(false);
+        addLog('Render', 'Header rerendered from AuthContext update');
+        addFlowStep('Header rerender complete');
+        refreshRuntimeSnapshot();
+      });
   };
 
   return (
-    <LearningLayout title="Chapter 1 - App Mount & Auth Check" subtitle="Trace initial session restoration through Context and reducer state.">
-      <div className="mini-stack">
-        <div className="status-box">
-          <strong>Session</strong>
-          <span>{state.loading ? 'Checking...' : state.isLogin ? `Restored: ${state.userInfo?.id}` : 'Anonymous'}</span>
+    <TraceMonitorLayout
+      title="Chapter 1 - App Mount & Auth Check"
+      subtitle="Run the startup auth restoration lifecycle as a focused trace session."
+      rawState={authState}
+      rawStateLabel="AuthContext"
+      actionPanel={
+        <div className="mini-stack">
+          <div className="status-box">
+            <strong>Session</strong>
+            <span>{authState.isLogin ? `Restored: ${authState.userInfo?.id}` : 'Anonymous'}</span>
+          </div>
+          <button type="button" onClick={runAuthCheck} disabled={pending}>
+            {pending ? 'Checking...' : 'Run auth check'}
+          </button>
+          {authState.error && <p className="error-text">{authState.error}</p>}
         </div>
-        <button type="button" onClick={runAuthCheck} disabled={state.loading}>
-          Run auth check
-        </button>
-        {state.error && <p className="error-text">{state.error}</p>}
-      </div>
-    </LearningLayout>
+      }
+      notes={
+        <>
+          <p>
+            Component: <code>src/pages/ChapterMountAuthPage.tsx</code>
+          </p>
+          <p>
+            API: <code>src/api/authApi.ts</code>
+          </p>
+          <p>
+            Reducer: <code>src/reducers/authReducer.ts</code>
+          </p>
+          <p>
+            Path: <code>handleAuthCheck -&gt; authApi.checkAuth -&gt; axiosClient.get -&gt; mockServer.request -&gt; dispatch -&gt; authReducer -&gt; rerender</code>
+          </p>
+          <p>
+            Mock: <code>?mock=auth:200:restored</code> or <code>?mock=auth:500:session-failed</code>
+          </p>
+        </>
+      }
+    />
   );
 }
