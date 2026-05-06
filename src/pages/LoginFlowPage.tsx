@@ -1,9 +1,11 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { authApi } from '../api/authApi';
-import { ApiMonitor } from '../components/ApiMonitor';
-import { AuthStateViewer } from '../components/AuthStateViewer';
-import { ExecutionConsole } from '../components/ExecutionConsole';
-import { FlowVisualizer } from '../components/FlowVisualizer';
+import { ApiActivityList } from '../components/ApiActivityList';
+import { ApiDetailInspector } from '../components/ApiDetailInspector';
+import { CallStackViewer } from '../components/CallStackViewer';
+import { RawConsoleDrawer } from '../components/RawConsoleDrawer';
+import { StateDiffViewer } from '../components/StateDiffViewer';
+import { TraceSessionViewer } from '../components/TraceSessionViewer';
 import { useAuthDispatch, useAuthState } from '../context/AuthContext';
 import { AUTH_RESTORE, LOGIN_SUCCESS, LOGOUT } from '../reducers/authActionTypes';
 import { addFlowStep } from '../runtime/flowTracker';
@@ -17,7 +19,7 @@ export function LoginFlowPage() {
   const [pending, setPending] = useState(false);
   const authState = useAuthState();
   const authDispatch = useAuthDispatch();
-  const { refreshRuntimeSnapshot } = useRuntime();
+  const { beginTraceSession, captureStateDiff, refreshRuntimeSnapshot } = useRuntime();
 
   useEffect(() => {
     addLog('Mount', 'LoginFlowPage mounted');
@@ -30,10 +32,16 @@ export function LoginFlowPage() {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setPending(true);
+    const beforeState = authState;
 
-    addLog('Handler', 'handleSubmit fired from LoginFlowPage');
-    addFlowStep('handleSubmit');
-    refreshRuntimeSnapshot();
+    beginTraceSession('Login', 'handleSubmit()', [
+      'LoginFlowPage.handleSubmit',
+      'authApi.login',
+      'axiosClient.post',
+      'mockServer.request',
+      'dispatch(LOGIN_SUCCESS | LOGOUT)',
+      'authReducer',
+    ]);
 
     authApi
       .login({ id, password })
@@ -41,44 +49,99 @@ export function LoginFlowPage() {
         addLog('Dispatch', 'dispatch(LOGIN_SUCCESS)');
         addFlowStep('dispatch LOGIN_SUCCESS');
         authDispatch({ type: LOGIN_SUCCESS, payload: { userInfo: response.data, message: response.message } });
+        addFlowStep('authReducer updates AuthState');
+        captureStateDiff(beforeState, {
+          ...beforeState,
+          isLogin: true,
+          userInfo: response.data,
+          authChecked: true,
+          loading: false,
+          error: null,
+          message: response.message,
+        });
       })
       .catch((error: MockServerFailure) => {
         addLog('Dispatch', 'dispatch(LOGOUT) after login failure');
         addFlowStep('dispatch LOGOUT after login failure');
         authDispatch({ type: LOGOUT, payload: { error: error.response?.message ?? 'login failed' } });
+        addFlowStep('authReducer clears AuthState');
+        captureStateDiff(beforeState, {
+          isLogin: false,
+          userInfo: null,
+          authChecked: true,
+          loading: false,
+          error: error.response?.message ?? 'login failed',
+          message: null,
+        });
       })
       .finally(() => {
         setPending(false);
         addLog('Render', 'LoginFlowPage rerendered after AuthState update');
-        addFlowStep('rerender with latest AuthState');
+        addFlowStep('rerender complete');
         refreshRuntimeSnapshot();
       });
   };
 
   const handleLogout = () => {
     setPending(true);
-    addLog('Handler', 'logout button clicked');
-    addFlowStep('handleLogout');
-    refreshRuntimeSnapshot();
+    const beforeState = authState;
+
+    beginTraceSession('Logout', 'handleLogout()', [
+      'LoginFlowPage.handleLogout',
+      'authApi.logout',
+      'axiosClient.post',
+      'mockServer.request',
+      'dispatch(LOGOUT)',
+      'authReducer',
+    ]);
 
     authApi.logout().finally(() => {
       addLog('Dispatch', 'dispatch(LOGOUT) from LoginFlowPage');
       addFlowStep('dispatch LOGOUT from LoginFlowPage');
       authDispatch({ type: LOGOUT, payload: { message: 'manual logout complete' } });
+      addFlowStep('authReducer clears AuthState');
+      captureStateDiff(beforeState, {
+        isLogin: false,
+        userInfo: null,
+        authChecked: true,
+        loading: false,
+        error: null,
+        message: 'manual logout complete',
+      });
       setPending(false);
       addLog('Render', 'LoginFlowPage rerendered after logout');
-      addFlowStep('rerender after logout');
+      addFlowStep('rerender complete');
       refreshRuntimeSnapshot();
     });
   };
 
   const runRestoreExample = () => {
+    const beforeState = authState;
+    const restoredState = {
+      ...beforeState,
+      isLogin: true,
+      userInfo: { id: 'restored-user', name: 'Restored User' },
+      authChecked: true,
+      loading: false,
+      error: null,
+      message: 'manual restore sample',
+    };
+
+    beginTraceSession('Manual AUTH_RESTORE', 'restore sample clicked', [
+      'LoginFlowPage.runRestoreExample',
+      'dispatch(AUTH_RESTORE)',
+      'authReducer',
+    ]);
     addLog('Dispatch', 'dispatch(AUTH_RESTORE) sample restore');
     addFlowStep('manual AUTH_RESTORE sample');
     authDispatch({
       type: AUTH_RESTORE,
       payload: { userInfo: { id: 'restored-user', name: 'Restored User' }, message: 'manual restore sample' },
     });
+    addFlowStep('authReducer updates AuthState');
+    captureStateDiff(beforeState, restoredState);
+    addLog('Render', 'LoginFlowPage rerendered after manual restore');
+    addFlowStep('rerender complete');
     refreshRuntimeSnapshot();
   };
 
@@ -141,12 +204,16 @@ export function LoginFlowPage() {
         </aside>
 
         <section className="runtime-monitoring-area">
-          <FlowVisualizer />
-          <ApiMonitor />
-          <div className="monitor-split-row">
-            <AuthStateViewer />
-            <ExecutionConsole />
+          <TraceSessionViewer />
+          <div className="trace-api-grid">
+            <ApiActivityList />
+            <ApiDetailInspector />
           </div>
+          <div className="trace-bottom-grid">
+            <StateDiffViewer />
+            <CallStackViewer />
+          </div>
+          <RawConsoleDrawer />
         </section>
       </section>
     </main>

@@ -3,13 +3,27 @@ import type { FlowStep, RuntimeEvent, RuntimeLog } from '../types/runtime';
 import { clearApiEvents, getApiEvents, type ApiMonitorEntry } from './apiMonitor';
 import { addFlowStep, clearFlow, getFlow } from './flowTracker';
 import { addLog, clearLogs, getLogs } from './logger';
+import { createStateDiff, type StateDiffEntry } from './stateDiff';
+
+type TraceSession = {
+  id: number;
+  title: string;
+  startedAt: string;
+};
 
 type RuntimeContextValue = {
   flowSteps: FlowStep[];
   activeStepId: string | null;
   logs: RuntimeLog[];
   apiEvents: ApiMonitorEntry[];
+  selectedApiEventId: number | null;
+  selectedApiEvent: ApiMonitorEntry | null;
+  traceSession: TraceSession | null;
+  stateDiff: StateDiffEntry[];
   callStack: string[];
+  beginTraceSession: (title: string, firstStep: string, callChain?: string[]) => TraceSession;
+  selectApiEvent: (id: number) => void;
+  captureStateDiff: (before: unknown, after: unknown) => void;
   setFlowSteps: (steps: FlowStep[]) => void;
   resetRuntime: (steps?: FlowStep[]) => void;
   appendLog: (kind: RuntimeLog['kind'], message: string) => void;
@@ -20,12 +34,16 @@ type RuntimeContextValue = {
 };
 
 const RuntimeContext = createContext<RuntimeContextValue | null>(null);
+let nextTraceSessionId = 1;
 
 export function RuntimeProvider({ children }: { children: ReactNode }) {
   const [flowSteps, setFlowStepsState] = useState<FlowStep[]>([]);
   const [activeStepId, setActiveStepId] = useState<string | null>(null);
   const [logs, setLogs] = useState<RuntimeLog[]>([]);
   const [apiEvents, setApiEvents] = useState<ApiMonitorEntry[]>([]);
+  const [selectedApiEventId, setSelectedApiEventId] = useState<number | null>(null);
+  const [traceSession, setTraceSession] = useState<TraceSession | null>(null);
+  const [stateDiff, setStateDiff] = useState<StateDiffEntry[]>([]);
   const [callStack, setCallStackState] = useState<string[]>([]);
 
   const syncLogsFromStore = useCallback(() => {
@@ -39,7 +57,15 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const syncApiEventsFromStore = useCallback(() => {
-    setApiEvents(getApiEvents());
+    const nextApiEvents = getApiEvents();
+    setApiEvents(nextApiEvents);
+    setSelectedApiEventId((currentId) => {
+      if (currentId && nextApiEvents.some((event) => event.id === currentId)) {
+        return currentId;
+      }
+
+      return nextApiEvents[0]?.id ?? null;
+    });
   }, []);
 
   const appendLog = useCallback((kind: RuntimeLog['kind'], message: string) => {
@@ -52,6 +78,41 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     syncFlowFromStore();
     syncApiEventsFromStore();
   }, [syncApiEventsFromStore, syncFlowFromStore, syncLogsFromStore]);
+
+  const beginTraceSession = useCallback(
+    (title: string, firstStep: string, callChain: string[] = []) => {
+      clearLogs();
+      clearFlow();
+      clearApiEvents();
+
+      const nextSession: TraceSession = {
+        id: nextTraceSessionId,
+        title,
+        startedAt: new Date().toISOString(),
+      };
+
+      nextTraceSessionId += 1;
+      setTraceSession(nextSession);
+      setStateDiff([]);
+      setSelectedApiEventId(null);
+      setCallStackState(callChain);
+
+      addLog('Handler', `${title} trace session started`);
+      addFlowStep(firstStep);
+      refreshRuntimeSnapshot();
+
+      return nextSession;
+    },
+    [refreshRuntimeSnapshot],
+  );
+
+  const selectApiEvent = useCallback((id: number) => {
+    setSelectedApiEventId(id);
+  }, []);
+
+  const captureStateDiff = useCallback((before: unknown, after: unknown) => {
+    setStateDiff(createStateDiff(before, after));
+  }, []);
 
   useEffect(() => {
     clearLogs();
@@ -99,6 +160,8 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
     setActiveStepId(null);
     setLogs([]);
     setApiEvents([]);
+    setSelectedApiEventId(null);
+    setStateDiff([]);
     setCallStackState([]);
   }, []);
 
@@ -128,7 +191,14 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       activeStepId,
       logs,
       apiEvents,
+      selectedApiEventId,
+      selectedApiEvent: apiEvents.find((event) => event.id === selectedApiEventId) ?? apiEvents[0] ?? null,
+      traceSession,
+      stateDiff,
       callStack,
+      beginTraceSession,
+      selectApiEvent,
+      captureStateDiff,
       setFlowSteps,
       resetRuntime,
       appendLog,
@@ -141,14 +211,20 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       activeStepId,
       appendLog,
       apiEvents,
+      beginTraceSession,
       callStack,
+      captureStateDiff,
       flowSteps,
       pushRuntimeFlowStep,
       refreshRuntimeSnapshot,
       resetRuntime,
       runEvents,
+      selectApiEvent,
+      selectedApiEventId,
       setCallStack,
       setFlowSteps,
+      stateDiff,
+      traceSession,
     ],
   );
 

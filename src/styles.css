@@ -230,6 +230,17 @@ label {
   grid-template-columns: minmax(300px, 0.9fr) minmax(360px, 1.1fr);
 }
 
+.trace-api-grid,
+.trace-bottom-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(260px, 0.7fr) minmax(420px, 1.3fr);
+}
+
+.trace-bottom-grid {
+  grid-template-columns: minmax(420px, 1.2fr) minmax(280px, 0.8fr);
+}
+
 .panel {
   background: #ffffff;
   border: 1px solid #dce4e1;
@@ -376,6 +387,58 @@ label {
   overflow-wrap: anywhere;
 }
 
+.trace-session-meta {
+  align-items: center;
+  background: #f8faf9;
+  border: 1px solid #dce4e1;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+}
+
+.trace-step-list {
+  display: grid;
+  gap: 8px;
+}
+
+.trace-step {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dce4e1;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 34px 1fr;
+  min-height: 46px;
+  padding: 9px 12px;
+}
+
+.trace-step span {
+  align-items: center;
+  background: #eef3f1;
+  border-radius: 999px;
+  display: flex;
+  font-size: 12px;
+  font-weight: 900;
+  height: 26px;
+  justify-content: center;
+  width: 26px;
+}
+
+.trace-step.active {
+  background: #e5f2ef;
+  border-color: #206a5d;
+  box-shadow: inset 4px 0 0 #206a5d;
+}
+
+.trace-step.active span {
+  background: #206a5d;
+  color: #ffffff;
+}
+
 .state-panel pre,
 .auth-state-panel pre,
 .api-event-card pre {
@@ -393,6 +456,46 @@ label {
 .api-monitor-list {
   display: grid;
   gap: 12px;
+}
+
+.api-activity-list {
+  display: grid;
+  gap: 8px;
+}
+
+.api-activity-item {
+  align-items: center;
+  background: #f8faf9;
+  border: 1px solid #dce4e1;
+  border-radius: 8px;
+  color: #172026;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto auto 1fr auto;
+  justify-items: start;
+  padding: 10px;
+  text-align: left;
+}
+
+.api-activity-item.active {
+  background: #e5f2ef;
+  border-color: #206a5d;
+}
+
+.api-activity-item code {
+  background: #ffffff;
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+
+.api-activity-item em {
+  border: 1px solid #c6d1cd;
+  border-radius: 999px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+  padding: 3px 7px;
+  text-transform: uppercase;
 }
 
 .api-event-card {
@@ -449,6 +552,16 @@ label {
   padding: 12px;
 }
 
+.api-detail-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.api-detail-grid > div:last-child {
+  grid-column: 1 / -1;
+}
+
 .api-section-title {
   color: #53605d;
   font-size: 12px;
@@ -458,6 +571,45 @@ label {
 
 .monitor-split-row .console-panel {
   grid-column: auto;
+}
+
+.state-diff-list {
+  display: grid;
+  gap: 8px;
+}
+
+.state-diff-row {
+  align-items: center;
+  background: #f8faf9;
+  border: 1px solid #dce4e1;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(120px, 1fr) auto minmax(120px, 1fr);
+  padding: 10px;
+}
+
+.state-diff-row code {
+  background: #ffffff;
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+  padding: 5px 7px;
+}
+
+.raw-state-details,
+.raw-console-drawer {
+  margin-top: 12px;
+}
+
+.raw-state-details summary,
+.raw-console-drawer summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.raw-console-drawer .console-panel {
+  margin-top: 10px;
 }
 
 .stack-list {
@@ -542,7 +694,9 @@ label {
   .learning-grid,
   .login-lab-grid,
   .runtime-monitor-layout,
-  .monitor-split-row {
+  .monitor-split-row,
+  .trace-api-grid,
+  .trace-bottom-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -563,7 +717,14 @@ label {
   .login-lab-grid,
   .runtime-monitor-layout,
   .monitor-split-row,
+  .trace-api-grid,
+  .trace-bottom-grid,
   .api-event-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .api-detail-grid,
+  .state-diff-row {
     grid-template-columns: 1fr;
   }
 
