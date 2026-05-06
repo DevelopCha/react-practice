@@ -16,6 +16,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -36,6 +37,7 @@ button:disabled {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   border: 1px solid #c6d1cd;
@@ -58,6 +60,50 @@ label {
 
 .app-shell {
   min-height: 100vh;
+  position: relative;
+}
+
+.app-shell-loading {
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+.app-shell-loading > :not(.app-loading-overlay) {
+  filter: grayscale(0.25);
+  opacity: 0.42;
+  pointer-events: none;
+  user-select: none;
+}
+
+.app-loading-overlay {
+  align-items: center;
+  background: rgba(23, 32, 38, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 20;
+}
+
+.app-loading-box {
+  background: #ffffff;
+  border: 1px solid #dce4e1;
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(23, 32, 38, 0.18);
+  display: grid;
+  gap: 6px;
+  min-width: 260px;
+  padding: 18px 20px;
+  text-align: center;
+}
+
+.app-loading-box strong {
+  color: #172026;
+}
+
+.app-loading-box span {
+  color: #53605d;
+  font-size: 13px;
 }
 
 .app-header {
@@ -187,6 +233,7 @@ label {
 .chapter-heading {
   align-items: end;
   display: flex;
+  gap: 12px;
   justify-content: space-between;
   margin-bottom: 18px;
 }
@@ -275,6 +322,42 @@ label {
   border-color: #bfccc7;
 }
 
+.api-lab-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.api-lab-header {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.api-lab-header strong {
+  color: #53605d;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.api-lab-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 90px 1fr;
+}
+
+.api-lab-editor textarea {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  min-height: 118px;
+}
+
+.secondary-button {
+  background: #33423f;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
@@ -292,6 +375,34 @@ label {
   gap: 10px;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.process-guide {
+  color: #33423f;
+  display: grid;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.process-guide ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.process-guide li::marker {
+  color: #206a5d;
+  font-weight: 900;
+}
+
+.process-guide strong {
+  color: #172026;
+}
+
+.process-guide p {
+  margin: 0;
 }
 
 .learning-notes-panel.compact {
@@ -399,32 +510,79 @@ label {
   padding: 10px 12px;
 }
 
+.trace-session-meta code {
+  background: #ffffff;
+  border-radius: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  padding: 4px 7px;
+}
+
+.trace-session-result {
+  background: #e5f2ef;
+  border-radius: 999px;
+  color: #206a5d;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 5px 9px;
+}
+
 .trace-step-list {
   display: grid;
   gap: 8px;
 }
 
 .trace-step {
-  align-items: center;
+  align-items: stretch;
   background: #ffffff;
   border: 1px solid #dce4e1;
   border-radius: 8px;
+  color: #172026;
+  cursor: default;
   display: grid;
   gap: 12px;
-  grid-template-columns: 34px 1fr;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(220px, 0.75fr);
   min-height: 46px;
   padding: 9px 12px;
+  text-align: left;
+  width: 100%;
 }
 
-.trace-step span {
+.trace-step.source-linked {
+  cursor: pointer;
+}
+
+.trace-step.source-linked:hover {
+  border-color: #206a5d;
+}
+
+.trace-step.done {
+  background: #f8faf9;
+  opacity: 0.72;
+}
+
+.trace-step.done:hover,
+.trace-step.done.source-linked:hover {
+  opacity: 0.94;
+}
+
+.trace-step.pending {
+  background: #ffffff;
+}
+
+.trace-step-index {
   align-items: center;
   background: #eef3f1;
+  border: 0;
   border-radius: 999px;
+  color: #172026;
   display: flex;
   font-size: 12px;
   font-weight: 900;
   height: 26px;
   justify-content: center;
+  padding: 0;
+  place-self: start center;
   width: 26px;
 }
 
@@ -432,11 +590,185 @@ label {
   background: #e5f2ef;
   border-color: #206a5d;
   box-shadow: inset 4px 0 0 #206a5d;
+  opacity: 1;
 }
 
-.trace-step.active span {
+.trace-step.active .trace-step-index {
   background: #206a5d;
   color: #ffffff;
+}
+
+.trace-step.done .trace-step-index {
+  background: #dce4e1;
+  color: #53605d;
+}
+
+.trace-step-body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.trace-step-result {
+  background: #ffffff;
+  border: 1px solid #dce4e1;
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+}
+
+.trace-step-result span {
+  color: #206a5d;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.trace-step-result pre {
+  color: #33423f;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.trace-step.pending .trace-step-result {
+  background: #f8faf9;
+}
+
+.trace-step.active .trace-step-result {
+  border-color: #206a5d;
+}
+
+.trace-step-heading,
+.meaning-heading {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trace-step-status,
+.meaning-status {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 5px 7px;
+  text-transform: uppercase;
+}
+
+.trace-step-status.pending,
+.meaning-status.pending {
+  background: #eef3f1;
+  color: #53605d;
+}
+
+.trace-step-status.active,
+.meaning-status.active {
+  background: #206a5d;
+  color: #ffffff;
+}
+
+.trace-step-status.done,
+.meaning-status.done {
+  background: #dce4e1;
+  color: #53605d;
+}
+
+.trace-step-body p {
+  color: #53605d;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.trace-step-body em {
+  color: #206a5d;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.trace-step-body code,
+.code-location {
+  background: #eef3f1;
+  border-radius: 6px;
+  color: #172026;
+  display: inline-block;
+  font-size: 12px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  padding: 4px 7px;
+}
+
+.trace-source-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trace-step-body details summary,
+.checkpoint-details summary {
+  color: #53605d;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.trace-step-body pre,
+.checkpoint-details pre,
+.api-detail-grid pre {
+  background: #0f1719;
+  border-radius: 8px;
+  color: #d9f3e7;
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 6px 0 0;
+  max-height: 240px;
+  overflow: auto;
+  padding: 12px;
+}
+
+@media (max-width: 980px) {
+  .trace-step {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .trace-step-result {
+    grid-column: 2;
+  }
+}
+
+.meaning-content {
+  display: grid;
+  gap: 12px;
+}
+
+.meaning-content p {
+  color: #33423f;
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+
+.reason-box {
+  background: #f8faf9;
+  border: 1px solid #dce4e1;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.reason-box span {
+  color: #206a5d;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .state-panel pre,
@@ -578,6 +910,16 @@ label {
   gap: 8px;
 }
 
+.state-diff-reason {
+  background: #f8faf9;
+  border: 1px solid #dce4e1;
+  border-radius: 8px;
+  color: #33423f;
+  line-height: 1.45;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+}
+
 .state-diff-row {
   align-items: center;
   background: #f8faf9;
@@ -639,16 +981,42 @@ label {
   border-radius: 8px;
   color: #edf7f4;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12px;
+  line-height: 1.55;
   max-height: 240px;
   min-height: 160px;
   overflow: auto;
   padding: 14px;
 }
 
+.console-panel-tall .console-output {
+  max-height: 420px;
+  min-height: 320px;
+}
+
+.console-line {
+  align-items: start;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 70px 76px minmax(0, 1fr);
+}
+
+.console-line + .console-line {
+  margin-top: 4px;
+}
+
+.console-line time {
+  color: #93a19d;
+}
+
 .console-line span {
   color: #8ed7c8;
+  font-weight: 900;
+}
+
+.console-line code {
+  color: #edf7f4;
+  overflow-wrap: anywhere;
 }
 
 .console-empty {

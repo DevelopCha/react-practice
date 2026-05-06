@@ -14,7 +14,7 @@ export function ChapterListPage() {
   const postState = usePostState();
   const postDispatch = usePostDispatch();
   const { setActiveChapter } = useCommon();
-  const { beginTraceSession, captureStateDiff, refreshRuntimeSnapshot } = useRuntime();
+  const { beginTraceSession, captureStateDiff, observe, refreshRuntimeSnapshot } = useRuntime();
 
   useEffect(() => {
     setActiveChapter('Chapter 3 - Data Fetch List');
@@ -23,7 +23,6 @@ export function ChapterListPage() {
   const runFetch = () => {
     const beforeState = postState;
     setPending(true);
-
     beginTraceSession('Fetch Posts', 'handleFetchPosts()', [
       'ChapterListPage.handleFetchPosts',
       'dispatch(FETCH_POSTS_REQUEST)',
@@ -32,7 +31,12 @@ export function ChapterListPage() {
       'mockServer.request',
       'dispatch(FETCH_POSTS_SUCCESS | FETCH_POSTS_FAILURE)',
       'postReducer',
-    ]);
+    ], { currentPostCount: postState.posts.length });
+    observe('fetch_request_build', { apiKey: 'users' }, {
+      label: '목록 조회 request 구성',
+      meaning: 'GET 요청은 body가 없지만 API Lab의 request JSON을 통해 실험용 조건을 함께 관찰할 수 있습니다.',
+      codeLocation: 'src/api/postApi.ts:8',
+    });
 
     addLog('Dispatch', 'dispatch(FETCH_POSTS_REQUEST)');
     addFlowStep('dispatch FETCH_POSTS_REQUEST');
@@ -45,12 +49,17 @@ export function ChapterListPage() {
         addFlowStep('dispatch FETCH_POSTS_SUCCESS');
         postDispatch({ type: FETCH_POSTS_SUCCESS, payload: { posts: response.data, message: response.message } });
         addFlowStep('postReducer stores fetched posts');
+        observe('fetch_response_transform', { rawResponse: response, reducerPayload: { posts: response.data, message: response.message } }, {
+          label: '목록 응답을 reducer payload로 변환',
+          meaning: 'mock response의 data 배열이 PostContext의 posts 상태로 들어갈 action payload가 됩니다.',
+          codeLocation: 'src/reducers/postReducer.ts:28',
+        });
         captureStateDiff(beforeState, {
           posts: response.data,
           loading: false,
           error: null,
           message: response.message,
-        });
+        }, 'FETCH_POSTS_SUCCESS dispatch completed. response.data가 posts 상태를 대체합니다.');
       })
       .catch((error: MockServerFailure) => {
         const errorMessage = error.response?.message ?? 'fetch failed';
@@ -63,7 +72,7 @@ export function ChapterListPage() {
           loading: false,
           error: errorMessage,
           message: null,
-        });
+        }, 'FETCH_POSTS_FAILURE dispatch completed. 목록은 비워지고 error 상태가 표시됩니다.');
       })
       .finally(() => {
         setPending(false);
@@ -79,6 +88,17 @@ export function ChapterListPage() {
       subtitle="Fetch a list and inspect request, mock response, reducer action, and post state diff."
       rawState={postState}
       rawStateLabel="PostContext"
+      apiLabKeys={['users']}
+      processGuide={
+        <>
+          <p>목록 조회는 서버 데이터를 화면 상태로 옮기는 가장 기본적인 read flow다. loading/error/data 상태 분리가 중요하다.</p>
+          <ol>
+            <li><strong>FETCH_POSTS_REQUEST</strong>: 사용자가 기다릴 수 있도록 loading 상태를 먼저 켠다.</li>
+            <li><strong>API response</strong>: raw response를 reducer가 사용할 posts/message payload로 정리한다.</li>
+            <li><strong>success/failure reducer</strong>: 성공은 목록을 교체하고, 실패는 error 상태를 명확히 남긴다.</li>
+          </ol>
+        </>
+      }
       actionPanel={
         <div className="mini-stack">
           <button type="button" onClick={runFetch} disabled={pending}>

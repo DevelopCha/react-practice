@@ -1,4 +1,4 @@
-import type { UserInfo } from '../types/auth';
+﻿import type { UserInfo } from '../types/auth';
 
 export const AUTH_RESTORE = 'AUTH_RESTORE';
 export const LOGIN_SUCCESS = 'LOGIN_SUCCESS';

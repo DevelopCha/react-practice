@@ -1,4 +1,13 @@
-export type RuntimeFlowEntry = {
+import { addLog } from './logger';
+
+export type RuntimeFlowStepDetails = {
+  meaning?: string;
+  data?: unknown;
+  codeLocation?: string;
+  status?: 'pending' | 'active' | 'done';
+};
+
+export type RuntimeFlowEntry = RuntimeFlowStepDetails & {
   id: number;
   step: string;
   timestamp: string;
@@ -15,15 +24,20 @@ function notifyFlowChanged() {
   }
 }
 
-export function addFlowStep(step: string): RuntimeFlowEntry {
+export function addFlowStep(step: string, details: RuntimeFlowStepDetails = {}): RuntimeFlowEntry {
   const entry: RuntimeFlowEntry = {
     id: nextFlowId,
     step,
     timestamp: new Date().toISOString(),
+    status: details.status ?? 'done',
+    meaning: details.meaning,
+    data: details.data,
+    codeLocation: details.codeLocation,
   };
 
   nextFlowId += 1;
   flow = [...flow, entry];
+  addLog('Flow', `step ${entry.id}: ${step}`);
   notifyFlowChanged();
 
   return entry;

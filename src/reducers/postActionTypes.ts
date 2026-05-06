@@ -1,4 +1,4 @@
-import type { Post } from '../types/post';
+﻿import type { Post } from '../types/post';
 
 export const FETCH_POSTS_REQUEST = 'FETCH_POSTS_REQUEST';
 export const FETCH_POSTS_SUCCESS = 'FETCH_POSTS_SUCCESS';

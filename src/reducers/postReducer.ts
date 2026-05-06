@@ -1,4 +1,4 @@
-import type { PostState } from '../types/post';
+﻿import type { PostState } from '../types/post';
 import { addFlowStep } from '../runtime/flowTracker';
 import { addLog } from '../runtime/logger';
 import {
@@ -21,6 +21,7 @@ export const initialPostState: PostState = {
 };
 
 function recordPostReducerStep(message: string) {
+
   addLog('Reducer', message);
   addFlowStep(message);
 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { authApi } from './api/authApi';
 import { Header } from './components/Header';
@@ -17,6 +17,7 @@ import type { MockServerFailure } from './runtime/mockServer';
 export function App() {
   const authDispatch = useAuthDispatch();
   const { refreshRuntimeSnapshot } = useRuntime();
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
     addLog('Mount', 'App mounted');
@@ -41,11 +42,12 @@ export function App() {
         addLog('Render', 'Auth state changed and App/Header rerendered');
         addFlowStep('Auth state visible in dashboard');
         refreshRuntimeSnapshot();
+        setInitializing(false);
       });
   }, [authDispatch, refreshRuntimeSnapshot]);
 
   return (
-    <div className="app-shell">
+    <div className={initializing ? 'app-shell app-shell-loading' : 'app-shell'} aria-busy={initializing}>
       <Header />
       <Routes>
         <Route path="/" element={<DashboardPage />} />
@@ -55,6 +57,14 @@ export function App() {
         <Route path="/chapter/mutation" element={<ChapterMutationPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      {initializing && (
+        <div className="app-loading-overlay" role="status" aria-live="polite">
+          <div className="app-loading-box">
+            <strong>Loading runtime...</strong>
+            <span>초기 상태를 준비하는 중입니다.</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

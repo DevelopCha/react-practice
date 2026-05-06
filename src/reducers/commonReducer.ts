@@ -1,4 +1,4 @@
-import { SET_ACTIVE_CHAPTER, type CommonAction } from './commonActionTypes';
+﻿import { SET_ACTIVE_CHAPTER, type CommonAction } from './commonActionTypes';
 
 export type CommonState = {
   chapterTitle: string;

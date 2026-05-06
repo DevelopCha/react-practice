@@ -2,6 +2,10 @@
 
 Interactive educational React MVP for learning legacy SPA runtime flow.
 
+## Direction
+
+- [Task 5. Observable Flow Playground 방향 리팩토링 요청서](docs/task-5-observable-flow-playground.md)
+
 ## Run
 
 ```bash

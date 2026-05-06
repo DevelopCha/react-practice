@@ -5,7 +5,7 @@ export function ApiActivityList() {
 
   return (
     <section className="panel api-activity-panel">
-      <div className="panel-title">API Activity List</div>
+      <div className="panel-title">API Flow Steps</div>
       <div className="api-activity-list">
         {apiEvents.length === 0 && <span className="muted">No API request in this trace session.</span>}
         {apiEvents.map((event, index) => (

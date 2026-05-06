@@ -1,4 +1,4 @@
-import type { AuthState } from '../types/auth';
+﻿import type { AuthState } from '../types/auth';
 import { addFlowStep } from '../runtime/flowTracker';
 import { addLog } from '../runtime/logger';
 import { AUTH_RESTORE, LOGIN_SUCCESS, LOGOUT, type AuthAction } from './authActionTypes';
@@ -12,9 +12,19 @@ export const initialAuthState: AuthState = {
   message: null,
 };
 
+function getReducerSourceLine(message: string) {
+  if (message.includes('AUTH_RESTORE')) return 'src/reducers/authReducer.ts:20';
+  if (message.includes('LOGIN_SUCCESS')) return 'src/reducers/authReducer.ts:31';
+  if (message.includes('LOGOUT')) return 'src/reducers/authReducer.ts:42';
+  return 'src/reducers/authReducer.ts:18';
+}
+
 function recordReducerStep(message: string) {
   addLog('Reducer', message);
-  addFlowStep(message);
+  addFlowStep(message, {
+    meaning: 'Action type에 따라 AuthContext state를 새 값으로 계산합니다.',
+    codeLocation: getReducerSourceLine(message),
+  });
 }
 
 export function authReducer(state: AuthState, action: AuthAction): AuthState {

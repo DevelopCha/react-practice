@@ -23,7 +23,7 @@ export function ChapterMutationPage() {
   const postState = usePostState();
   const postDispatch = usePostDispatch();
   const { setActiveChapter } = useCommon();
-  const { beginTraceSession, captureStateDiff, refreshRuntimeSnapshot, setCallStack } = useRuntime();
+  const { beginTraceSession, captureStateDiff, observe, refreshRuntimeSnapshot, setCallStack } = useRuntime();
 
   useEffect(() => {
     setActiveChapter('Chapter 4 - Create/Delete Mutation');
@@ -38,7 +38,7 @@ export function ChapterMutationPage() {
       'mockServer.request',
       'dispatch(FETCH_POSTS_SUCCESS)',
       'postReducer',
-    ]);
+    ], { currentPostCount: postState.posts.length });
     setPending(true);
 
     postApi
@@ -48,7 +48,7 @@ export function ChapterMutationPage() {
         addFlowStep('dispatch FETCH_POSTS_SUCCESS');
         postDispatch({ type: FETCH_POSTS_SUCCESS, payload: { posts: response.data, message: response.message } });
         addFlowStep('postReducer loads sample posts');
-        captureStateDiff(beforeState, { posts: response.data, loading: false, error: null, message: response.message });
+        captureStateDiff(beforeState, { posts: response.data, loading: false, error: null, message: response.message }, 'FETCH_POSTS_SUCCESS dispatch completed. response.data가 posts 상태를 대체합니다.');
       })
       .finally(() => {
         setPending(false);
@@ -71,7 +71,6 @@ export function ChapterMutationPage() {
     event.preventDefault();
     const beforeState = postState;
     setPending(true);
-
     beginTraceSession('Create Post', 'handleCreateSubmit()', [
       'ChapterMutationPage.handleCreateSubmit',
       'dispatch(ADD_POST_REQUEST)',
@@ -80,7 +79,17 @@ export function ChapterMutationPage() {
       'mockServer.request',
       'dispatch(ADD_POST_SUCCESS | POST_MUTATION_FAILURE)',
       'postReducer',
-    ]);
+    ], { title, body });
+    observe('create_input_collect', { title, body }, {
+      label: '게시글 입력값 수집',
+      meaning: 'Input Lab의 title/body 값을 이번 Create Post Session의 실험 입력으로 고정합니다.',
+      codeLocation: 'src/pages/ChapterMutationPage.tsx:83',
+    });
+    observe('create_payload_build', { requestPayload: { title, body } }, {
+      label: 'create payload 생성',
+      meaning: '폼 상태를 postApi.createPost가 받을 mutation payload로 변환합니다.',
+      codeLocation: 'src/api/postApi.ts:13',
+    });
 
     addLog('Dispatch', 'dispatch(ADD_POST_REQUEST)');
     addFlowStep('dispatch ADD_POST_REQUEST');
@@ -98,7 +107,7 @@ export function ChapterMutationPage() {
           loading: false,
           error: null,
           message: response.message,
-        });
+        }, 'ADD_POST_SUCCESS dispatch completed. 생성된 post가 목록 맨 앞에 추가됩니다.');
       })
       .catch((error: MockServerFailure) => {
         const errorMessage = error.response?.message ?? 'create failed';
@@ -106,7 +115,7 @@ export function ChapterMutationPage() {
         addFlowStep('dispatch POST_MUTATION_FAILURE');
         postDispatch({ type: POST_MUTATION_FAILURE, payload: { error: errorMessage } });
         addFlowStep('postReducer renders mutation error');
-        captureStateDiff(beforeState, { ...beforeState, loading: false, error: errorMessage, message: null });
+        captureStateDiff(beforeState, { ...beforeState, loading: false, error: errorMessage, message: null }, 'POST_MUTATION_FAILURE dispatch completed. 목록은 유지되고 error만 표시됩니다.');
       })
       .finally(() => {
         setPending(false);
@@ -119,7 +128,6 @@ export function ChapterMutationPage() {
   const handleDelete = (id: number) => {
     const beforeState = postState;
     setPending(true);
-
     beginTraceSession('Delete Post', `handleDeleteClick(${id})`, [
       'ChapterMutationPage.handleDeleteClick',
       'dispatch(REMOVE_POST_REQUEST)',
@@ -128,7 +136,12 @@ export function ChapterMutationPage() {
       'mockServer.request',
       'dispatch(REMOVE_POST_SUCCESS | POST_MUTATION_FAILURE)',
       'postReducer',
-    ]);
+    ], { deleteId: id });
+    observe('delete_payload_build', { requestPayload: { deletedId: id } }, {
+      label: 'delete payload 생성',
+      meaning: '사용자가 선택한 post id를 삭제 API와 reducer가 공유할 payload로 고정합니다.',
+      codeLocation: 'src/api/postApi.ts:18',
+    });
 
     addLog('Dispatch', 'dispatch(REMOVE_POST_REQUEST)');
     addFlowStep('dispatch REMOVE_POST_REQUEST');
@@ -146,7 +159,7 @@ export function ChapterMutationPage() {
           loading: false,
           error: null,
           message: response.message,
-        });
+        }, 'REMOVE_POST_SUCCESS dispatch completed. deletedId와 일치하는 post가 목록에서 제거됩니다.');
       })
       .catch((error: MockServerFailure) => {
         const errorMessage = error.response?.message ?? 'delete failed';
@@ -154,7 +167,7 @@ export function ChapterMutationPage() {
         addFlowStep('dispatch POST_MUTATION_FAILURE');
         postDispatch({ type: POST_MUTATION_FAILURE, payload: { error: errorMessage } });
         addFlowStep('postReducer renders mutation error');
-        captureStateDiff(beforeState, { ...beforeState, loading: false, error: errorMessage, message: null });
+        captureStateDiff(beforeState, { ...beforeState, loading: false, error: errorMessage, message: null }, 'POST_MUTATION_FAILURE dispatch completed. 목록은 유지되고 error만 표시됩니다.');
       })
       .finally(() => {
         setPending(false);
@@ -170,6 +183,17 @@ export function ChapterMutationPage() {
       subtitle="Run create/delete mutations and inspect payloads, reducer actions, and PostContext diffs."
       rawState={postState}
       rawStateLabel="PostContext"
+      apiLabKeys={['users', 'write', 'delete']}
+      processGuide={
+        <>
+          <p>생성/삭제 mutation은 기존 목록을 바꾸는 흐름이다. 요청 전 loading, 성공 후 목록 갱신, 실패 후 복구 메시지가 핵심이다.</p>
+          <ol>
+            <li><strong>request action</strong>: 중복 실행을 막고 사용자에게 처리 중임을 알려준다.</li>
+            <li><strong>mutation API</strong>: 입력값이나 id를 서버가 이해할 payload로 보낸다.</li>
+            <li><strong>success/failure reducer</strong>: 성공 시 목록을 변경하고 실패 시 기존 목록을 보존하며 error를 보여준다.</li>
+          </ol>
+        </>
+      }
       actionPanel={
         <div className="mini-stack">
           <button type="button" onClick={loadSamples} disabled={pending}>

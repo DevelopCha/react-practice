@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "pwa-chrome",
+      "request": "attach",
+      "name": "Attach Chrome from 0-run-local.bat",
+      "address": "localhost",
+      "port": 9222,
+      "urlFilter": "*://*:5173/*",
+      "webRoot": "${workspaceFolder}",
+      "sourceMaps": true,
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"],
+      "trace": true
+    },
+    {
+      "type": "pwa-msedge",
+      "request": "attach",
+      "name": "Attach Edge from 0-run-local.bat",
+      "address": "localhost",
+      "port": 9222,
+      "urlFilter": "*://*:5173/*",
+      "webRoot": "${workspaceFolder}",
+      "sourceMaps": true,
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"],
+      "trace": true
+    }
+  ]
+}

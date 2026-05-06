@@ -8,11 +8,13 @@ function stringify(value: unknown) {
 export function ApiDetailInspector() {
   const { selectedApiEvent } = useRuntime();
   const mockConfig = selectedApiEvent ? parseMockQuery()[selectedApiEvent.apiKey] ?? null : null;
+  const response = selectedApiEvent?.status === 'error' ? selectedApiEvent.error : selectedApiEvent?.response ?? { status: 'pending' };
+  const transformedResponse = selectedApiEvent?.status === 'success' ? selectedApiEvent.response : null;
 
   return (
     <section className="panel api-detail-panel">
-      <div className="panel-title">API Detail Inspector</div>
-      {!selectedApiEvent && <span className="muted">Select an API request to inspect request, response, and mock config.</span>}
+      <div className="panel-title">API Data Flow</div>
+      {!selectedApiEvent && <span className="muted">Select an API request to inspect request, response, transformation, and reducer payload.</span>}
       {selectedApiEvent && (
         <div className="api-detail-grid">
           <div>
@@ -25,8 +27,24 @@ export function ApiDetailInspector() {
             })}</pre>
           </div>
           <div>
-            <div className="api-section-title">Response</div>
-            <pre>{stringify(selectedApiEvent.status === 'error' ? selectedApiEvent.error : selectedApiEvent.response ?? { status: 'pending' })}</pre>
+            <div className="api-section-title">Mock Normalized Payload</div>
+            <pre>{stringify({
+              apiKey: selectedApiEvent.apiKey,
+              mockConfig: mockConfig ?? 'default',
+              requestPayload: selectedApiEvent.payload,
+            })}</pre>
+          </div>
+          <div>
+            <div className="api-section-title">Raw Response</div>
+            <pre>{stringify(response)}</pre>
+          </div>
+          <div>
+            <div className="api-section-title">Reducer Payload</div>
+            <pre>{stringify({
+              status: selectedApiEvent.status,
+              payload: transformedResponse,
+              error: selectedApiEvent.status === 'error' ? selectedApiEvent.error : null,
+            })}</pre>
           </div>
           <div>
             <div className="api-section-title">Mock Config</div>

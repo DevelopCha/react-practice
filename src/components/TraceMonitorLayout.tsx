@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { ApiActivityList } from './ApiActivityList';
 import { ApiDetailInspector } from './ApiDetailInspector';
+import { ApiLabEditor } from './ApiLabEditor';
 import { CallStackViewer } from './CallStackViewer';
-import { RawConsoleDrawer } from './RawConsoleDrawer';
+import { ExecutionConsole } from './ExecutionConsole';
+import { MeaningPanel } from './MeaningPanel';
 import { StateDiffViewer } from './StateDiffViewer';
 import { TraceSessionViewer } from './TraceSessionViewer';
 
@@ -11,11 +13,22 @@ type TraceMonitorLayoutProps = {
   subtitle: string;
   actionPanel: ReactNode;
   notes: ReactNode;
+  processGuide?: ReactNode;
   rawState?: unknown;
   rawStateLabel?: string;
+  apiLabKeys?: string[];
 };
 
-export function TraceMonitorLayout({ title, subtitle, actionPanel, notes, rawState, rawStateLabel }: TraceMonitorLayoutProps) {
+export function TraceMonitorLayout({
+  title,
+  subtitle,
+  actionPanel,
+  notes,
+  processGuide,
+  rawState,
+  rawStateLabel,
+  apiLabKeys = [],
+}: TraceMonitorLayoutProps) {
   return (
     <main className="login-flow-page">
       <section className="chapter-heading">
@@ -28,9 +41,22 @@ export function TraceMonitorLayout({ title, subtitle, actionPanel, notes, rawSta
       <section className="runtime-monitor-layout">
         <aside className="mini-action-column">
           <section className="panel mini-action-panel">
-            <div className="panel-title">Mini Action Panel</div>
+            <div className="panel-title">Input Lab</div>
             {actionPanel}
           </section>
+
+          {processGuide && (
+            <section className="panel process-guide-panel">
+              <div className="panel-title">Process Guide</div>
+              <div className="process-guide">{processGuide}</div>
+            </section>
+          )}
+
+          {apiLabKeys.length > 0 && (
+            <section className="panel api-lab-panel">
+              <ApiLabEditor apiKeys={apiLabKeys} />
+            </section>
+          )}
 
           <section className="panel learning-notes-panel compact">
             <div className="panel-title">Click Anatomy</div>
@@ -40,6 +66,8 @@ export function TraceMonitorLayout({ title, subtitle, actionPanel, notes, rawSta
 
         <section className="runtime-monitoring-area">
           <TraceSessionViewer />
+          <ExecutionConsole title="Process Console" tall />
+          <MeaningPanel />
           <div className="trace-api-grid">
             <ApiActivityList />
             <ApiDetailInspector />
@@ -48,7 +76,6 @@ export function TraceMonitorLayout({ title, subtitle, actionPanel, notes, rawSta
             <StateDiffViewer rawState={rawState} rawStateLabel={rawStateLabel} />
             <CallStackViewer />
           </div>
-          <RawConsoleDrawer />
         </section>
       </section>
     </main>
