@@ -50,6 +50,13 @@ export const mockServer = {
     addFlowStep(`mockServer.request(${apiKey})`, {
       meaning: 'mock 설정과 API Lab override를 적용해 응답을 예약합니다.',
       codeLocation: 'src/runtime/mockServer.ts:36',
+      layer: 'Mock',
+      importance: 'core',
+      breakpointTip: 'mock status/message override가 실제 어떤 응답으로 해석되는지 확인합니다.',
+      changeSummary: 'mock 응답 시나리오가 결정되고 응답이 예약됩니다.',
+      graphColumn: 3,
+      graphRow: 1,
+      graphParents: ['auth-preview-5'],
     });
 
     return new Promise((resolve, reject) => {
@@ -60,6 +67,13 @@ export const mockServer = {
           addFlowStep(`mockServer resolved ${apiKey}`, {
             meaning: '성공 응답을 resolve하고 response data를 다음 단계로 넘깁니다.',
             codeLocation: 'src/runtime/mockServer.ts:52',
+            layer: 'Mock',
+            importance: 'support',
+            breakpointTip: '응답 data shape가 기대한 userInfo 형태인지 확인합니다.',
+            changeSummary: '성공 응답 payload가 애플리케이션으로 돌아옵니다.',
+            graphColumn: 4,
+            graphRow: 1,
+            graphParents: ['auth-preview-6'],
           });
           resolve({
             status: effectiveStatus,
@@ -73,6 +87,13 @@ export const mockServer = {
         addFlowStep(`mockServer rejected ${apiKey}`, {
           meaning: '실패 응답을 reject하여 catch 흐름으로 이동시킵니다.',
           codeLocation: 'src/runtime/mockServer.ts:63',
+          layer: 'Mock',
+          importance: 'core',
+          breakpointTip: '실패 status/message가 catch에서 처리할 값과 같은지 확인합니다.',
+          changeSummary: '실패 응답이 reject되어 fallback 흐름으로 넘어갑니다.',
+          graphColumn: 4,
+          graphRow: 2,
+          graphParents: ['auth-preview-6'],
         });
         reject({
           response: {

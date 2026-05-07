@@ -6,7 +6,7 @@ import { CallStackViewer } from './CallStackViewer';
 import { ExecutionConsole } from './ExecutionConsole';
 import { MeaningPanel } from './MeaningPanel';
 import { StateDiffViewer } from './StateDiffViewer';
-import { TraceSessionViewer } from './TraceSessionViewer';
+import { TraceSessionViewer, type TraceStepAction } from './TraceSessionViewer';
 
 type TraceMonitorLayoutProps = {
   title: string;
@@ -17,6 +17,7 @@ type TraceMonitorLayoutProps = {
   rawState?: unknown;
   rawStateLabel?: string;
   apiLabKeys?: string[];
+  stepActions?: Record<string, TraceStepAction>;
 };
 
 export function TraceMonitorLayout({
@@ -28,6 +29,7 @@ export function TraceMonitorLayout({
   rawState,
   rawStateLabel,
   apiLabKeys = [],
+  stepActions,
 }: TraceMonitorLayoutProps) {
   return (
     <main className="login-flow-page">
@@ -65,7 +67,7 @@ export function TraceMonitorLayout({
         </aside>
 
         <section className="runtime-monitoring-area">
-          <TraceSessionViewer />
+          <TraceSessionViewer stepActions={stepActions} />
           <ExecutionConsole title="Process Console" tall />
           <MeaningPanel />
           <div className="trace-api-grid">

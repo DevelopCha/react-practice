@@ -1,4 +1,4 @@
-﻿const sourcePathPattern = /(src\/[\w./-]+\.(?:ts|tsx))(?:\:(\d+))?/;
+﻿const sourcePathPattern = /(src\/[\w./-]+\.(?:tsx|ts))(?:\:(\d+))?/;
 
 export type SourceTarget = {
   path: string;
@@ -23,14 +23,22 @@ export function parseSourceTarget(codeLocation?: string): SourceTarget | null {
   };
 }
 
-export function openSourceInVscode(codeLocation?: string) {
-  const sourceTarget = parseSourceTarget(codeLocation);
-
-  if (!sourceTarget) {
-    return;
-  }
-
-  const target = `${__WORKSPACE_ROOT__}/${sourceTarget.path}${sourceTarget.line ? `:${sourceTarget.line}` : ''}`;
-  window.open(encodeURI(`vscode://file/${target}`), '_blank', 'noopener,noreferrer');
+function buildAbsolutePath(path: string) {
+  return `${__WORKSPACE_ROOT__}/${path}`.replace(/\/{2,}/g, '/');
 }
 
+export function buildVscodeUrl(target: SourceTarget) {
+  const absolutePath = buildAbsolutePath(target.path);
+  const encodedPath = absolutePath
+    .split('/')
+    .map((segment, index) => (index === 0 ? segment : encodeURIComponent(segment)))
+    .join('/');
+
+  return target.line
+    ? `vscode://file/${encodedPath}:${target.line}`
+    : `vscode://file/${encodedPath}`;
+}
+
+export function openSourceInVscode(target: SourceTarget) {
+  window.location.href = buildVscodeUrl(target);
+}

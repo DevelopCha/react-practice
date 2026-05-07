@@ -1,10 +1,18 @@
 import { addLog } from './logger';
+import { isRuntimeInstrumentationEnabled } from './traceGate';
 
 export type RuntimeFlowStepDetails = {
   meaning?: string;
   data?: unknown;
   codeLocation?: string;
   status?: 'pending' | 'active' | 'done';
+  layer?: string;
+  importance?: 'core' | 'support';
+  breakpointTip?: string;
+  changeSummary?: string;
+  graphColumn?: number;
+  graphRow?: number;
+  graphParents?: string[];
 };
 
 export type RuntimeFlowEntry = RuntimeFlowStepDetails & {
@@ -25,6 +33,25 @@ function notifyFlowChanged() {
 }
 
 export function addFlowStep(step: string, details: RuntimeFlowStepDetails = {}): RuntimeFlowEntry {
+  if (!isRuntimeInstrumentationEnabled()) {
+    return {
+      id: -1,
+      step,
+      timestamp: new Date().toISOString(),
+      status: details.status ?? 'done',
+      meaning: details.meaning,
+      data: details.data,
+      codeLocation: details.codeLocation,
+      layer: details.layer,
+      importance: details.importance,
+      breakpointTip: details.breakpointTip,
+      changeSummary: details.changeSummary,
+      graphColumn: details.graphColumn,
+      graphRow: details.graphRow,
+      graphParents: details.graphParents,
+    };
+  }
+
   const entry: RuntimeFlowEntry = {
     id: nextFlowId,
     step,
@@ -33,6 +60,13 @@ export function addFlowStep(step: string, details: RuntimeFlowStepDetails = {}):
     meaning: details.meaning,
     data: details.data,
     codeLocation: details.codeLocation,
+    layer: details.layer,
+    importance: details.importance,
+    breakpointTip: details.breakpointTip,
+    changeSummary: details.changeSummary,
+    graphColumn: details.graphColumn,
+    graphRow: details.graphRow,
+    graphParents: details.graphParents,
   };
 
   nextFlowId += 1;

@@ -4,6 +4,18 @@ function stringify(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
+function getStatusLabel(status?: string) {
+  if (status === 'active') {
+    return 'RUNNING';
+  }
+
+  if (status === 'done') {
+    return 'SUCCESS';
+  }
+
+  return 'WAIT';
+}
+
 export function MeaningPanel() {
   const { selectedCheckpoint, selectedStep, traceSession, stateDiffReason } = useRuntime();
   const selectedData = selectedCheckpoint?.data ?? selectedStep?.data;
@@ -22,7 +34,7 @@ export function MeaningPanel() {
           <div>
             <div className="meaning-heading">
               <strong>{selectedLabel}</strong>
-              {selectedStep && <span className={`meaning-status ${selectedStatus}`}>{selectedStatus}</span>}
+              {selectedStep && <span className={`meaning-status ${selectedStatus}`}>{getStatusLabel(selectedStatus)}</span>}
             </div>
             <p>
               {selectedMeaning ??

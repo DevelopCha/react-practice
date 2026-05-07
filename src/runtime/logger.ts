@@ -1,4 +1,5 @@
 import type { LogKind } from '../types/runtime';
+import { isRuntimeInstrumentationEnabled } from './traceGate';
 
 export type RuntimeLogType = LogKind;
 
@@ -21,6 +22,15 @@ function notifyLoggerChanged() {
 }
 
 export function addLog(type: RuntimeLogType, message: string): RuntimeLoggerEntry {
+  if (!isRuntimeInstrumentationEnabled()) {
+    return {
+      id: -1,
+      type,
+      message,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   const entry: RuntimeLoggerEntry = {
     id: nextLogId,
     type,

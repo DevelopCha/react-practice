@@ -15,6 +15,13 @@ export type FlowStep = {
   data?: unknown;
   codeLocation?: string;
   timestamp?: string;
+  layer?: string;
+  importance?: 'core' | 'support';
+  breakpointTip?: string;
+  changeSummary?: string;
+  graphColumn?: number;
+  graphRow?: number;
+  graphParents?: string[];
 };
 
 export type RuntimeEvent = {

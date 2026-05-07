@@ -1,3 +1,5 @@
+import { isRuntimeInstrumentationEnabled } from './traceGate';
+
 export type ApiMethod = 'GET' | 'POST' | 'DELETE';
 
 export type ApiMonitorStatus = 'pending' | 'success' | 'error';
@@ -27,6 +29,18 @@ function notifyApiMonitorChanged() {
 }
 
 export function addApiRequest(method: ApiMethod, apiKey: string, payload?: unknown): ApiMonitorEntry {
+  if (!isRuntimeInstrumentationEnabled()) {
+    return {
+      id: -1,
+      method,
+      apiKey,
+      endpoint: `/mock/${apiKey}`,
+      payload: payload ?? null,
+      status: 'pending',
+      startedAt: new Date().toISOString(),
+    };
+  }
+
   const entry: ApiMonitorEntry = {
     id: nextApiEventId,
     method,
@@ -45,6 +59,10 @@ export function addApiRequest(method: ApiMethod, apiKey: string, payload?: unkno
 }
 
 export function resolveApiRequest(id: number, response: unknown) {
+  if (id < 0) {
+    return;
+  }
+
   apiEvents = apiEvents.map((entry) =>
     entry.id === id
       ? {
@@ -59,6 +77,10 @@ export function resolveApiRequest(id: number, response: unknown) {
 }
 
 export function rejectApiRequest(id: number, error: unknown) {
+  if (id < 0) {
+    return;
+  }
+
   apiEvents = apiEvents.map((entry) =>
     entry.id === id
       ? {

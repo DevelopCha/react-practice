@@ -1,12 +1,11 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { reactTrack } from '../data/learningCatalog';
 import { useRuntime } from '../runtime/RuntimeContext';
 
-const chapters = [
-  { to: '/chapter/mount-auth', label: 'Ch 1' },
-  { to: '/chapter/login', label: 'Ch 2' },
-  { to: '/chapter/list', label: 'Ch 3' },
-  { to: '/chapter/mutation', label: 'Ch 4' },
+const topLinks = [
+  { to: '/', label: 'Home' },
+  ...reactTrack.groups.map((group) => ({ to: `/track/react/${group.id}`, label: group.title })),
 ];
 
 export function Header() {
@@ -25,9 +24,9 @@ export function Header() {
         React Legacy Learning Lab
       </Link>
       <nav className="top-nav">
-        {chapters.map((chapter) => (
-          <NavLink key={chapter.to} to={chapter.to}>
-            {chapter.label}
+        {topLinks.map((item) => (
+          <NavLink key={item.to} to={item.to}>
+            {item.label}
           </NavLink>
         ))}
       </nav>

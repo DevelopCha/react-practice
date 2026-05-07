@@ -22,10 +22,18 @@ type Checkpoint = {
   meaning?: string;
   codeLocation?: string;
   timestamp: string;
+  layer?: string;
+  importance?: 'core' | 'support';
+  breakpointTip?: string;
+  changeSummary?: string;
+  graphColumn?: number;
+  graphRow?: number;
+  graphParents?: string[];
 };
 
 type RuntimeContextValue = {
   flowSteps: FlowStep[];
+  runtimeFlowSteps: FlowStep[];
   activeStepId: string | null;
   selectedStepId: string | null;
   selectedStep: FlowStep | null;
@@ -44,10 +52,35 @@ type RuntimeContextValue = {
     firstStep: string,
     callChain?: string[],
     input?: unknown,
-    firstStepDetails?: { meaning?: string; codeLocation?: string },
+    firstStepDetails?: {
+      meaning?: string;
+      codeLocation?: string;
+      layer?: string;
+      importance?: 'core' | 'support';
+      breakpointTip?: string;
+      changeSummary?: string;
+      graphColumn?: number;
+      graphRow?: number;
+      graphParents?: string[];
+    },
   ) => TraceSession;
   completeTraceSession: (result: string) => void;
-  observe: (name: string, data: unknown, details?: { label?: string; meaning?: string; codeLocation?: string }) => void;
+  observe: (
+    name: string,
+    data: unknown,
+    details?: {
+      label?: string;
+      meaning?: string;
+      codeLocation?: string;
+      layer?: string;
+      importance?: 'core' | 'support';
+      breakpointTip?: string;
+      changeSummary?: string;
+      graphColumn?: number;
+      graphRow?: number;
+      graphParents?: string[];
+    },
+  ) => void;
   selectFlowStep: (stepId: string) => void;
   selectApiEvent: (id: number) => void;
   captureStateDiff: (before: unknown, after: unknown, reason?: string) => void;
@@ -67,6 +100,7 @@ let nextCheckpointId = 1;
 
 export function RuntimeProvider({ children }: { children: ReactNode }) {
   const [flowSteps, setFlowStepsState] = useState<FlowStep[]>([]);
+  const [runtimeFlowSteps, setRuntimeFlowSteps] = useState<FlowStep[]>([]);
   const [activeStepId, setActiveStepId] = useState<string | null>(null);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [logs, setLogs] = useState<RuntimeLog[]>([]);
@@ -94,11 +128,20 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       data: entry.data,
       codeLocation: entry.codeLocation,
       timestamp: entry.timestamp,
+      layer: entry.layer,
+      importance: entry.importance,
+      breakpointTip: entry.breakpointTip,
+      changeSummary: entry.changeSummary,
+      graphColumn: entry.graphColumn,
+      graphRow: entry.graphRow,
+      graphParents: entry.graphParents,
     }));
     const latestRuntimeStepId = runtimeSteps[runtimeSteps.length - 1]?.id ?? null;
+    setRuntimeFlowSteps(runtimeSteps);
     const runtimeStepByLabel = new Map(runtimeSteps.map((step) => [step.label, step]));
     const previewLabels = new Set(previewFlowSteps.map((step) => step.label));
-    let activeMergedStepId = latestRuntimeStepId;
+    const sessionInProgress = Boolean(traceSession && !traceSession.result);
+    let activeMergedStepId = sessionInProgress ? latestRuntimeStepId : null;
 
     const mergedPreviewSteps = previewFlowSteps.map((previewStep) => {
       const runtimeStep = runtimeStepByLabel.get(previewStep.label);
@@ -107,7 +150,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         return { ...previewStep, status: 'pending' as const };
       }
 
-      const isActive = runtimeStep.id === latestRuntimeStepId;
+      const isActive = sessionInProgress && runtimeStep.id === latestRuntimeStepId;
       if (isActive) {
         activeMergedStepId = previewStep.id;
       }
@@ -128,7 +171,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       .filter((step) => !previewLabels.has(step.label))
       .map((step) => ({
         ...step,
-        status: step.id === latestRuntimeStepId ? ('active' as const) : ('done' as const),
+        status: sessionInProgress && step.id === latestRuntimeStepId ? ('active' as const) : ('done' as const),
       }));
 
     const nextSteps =
@@ -147,7 +190,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
 
       return nextSteps[0]?.id ?? null;
     });
-  }, [previewFlowSteps]);
+  }, [previewFlowSteps, traceSession]);
 
   const syncApiEventsFromStore = useCallback(() => {
     const nextApiEvents = getApiEvents();
@@ -178,7 +221,17 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       firstStep: string,
       callChain: string[] = [],
       input?: unknown,
-      firstStepDetails: { meaning?: string; codeLocation?: string } = {},
+      firstStepDetails: {
+        meaning?: string;
+        codeLocation?: string;
+        layer?: string;
+        importance?: 'core' | 'support';
+        breakpointTip?: string;
+        changeSummary?: string;
+        graphColumn?: number;
+        graphRow?: number;
+        graphParents?: string[];
+      } = {},
     ) => {
       clearLogs();
       clearFlow();
@@ -208,6 +261,13 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         meaning: firstStepDetails.meaning ?? '사용자 행동 하나가 독립적인 실험 Session을 시작합니다.',
         data: input,
         codeLocation: firstStepDetails.codeLocation,
+        layer: firstStepDetails.layer,
+        importance: firstStepDetails.importance,
+        breakpointTip: firstStepDetails.breakpointTip,
+        changeSummary: firstStepDetails.changeSummary,
+        graphColumn: firstStepDetails.graphColumn,
+        graphRow: firstStepDetails.graphRow,
+        graphParents: firstStepDetails.graphParents,
       });
       setSelectedStepId(String(firstFlowStep.id));
       refreshRuntimeSnapshot();
@@ -237,11 +297,33 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   }, [checkpoints]);
 
   const observe = useCallback(
-    (name: string, data: unknown, details: { label?: string; meaning?: string; codeLocation?: string } = {}) => {
+    (
+      name: string,
+      data: unknown,
+      details: {
+        label?: string;
+        meaning?: string;
+        codeLocation?: string;
+        layer?: string;
+        importance?: 'core' | 'support';
+        breakpointTip?: string;
+        changeSummary?: string;
+        graphColumn?: number;
+        graphRow?: number;
+        graphParents?: string[];
+      } = {},
+    ) => {
       const flowStep = addFlowStep(details.label ?? name, {
         meaning: details.meaning,
         data,
         codeLocation: details.codeLocation,
+        layer: details.layer,
+        importance: details.importance,
+        breakpointTip: details.breakpointTip,
+        changeSummary: details.changeSummary,
+        graphColumn: details.graphColumn,
+        graphRow: details.graphRow,
+        graphParents: details.graphParents,
       });
       const checkpoint: Checkpoint = {
         id: nextCheckpointId,
@@ -252,6 +334,13 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
         meaning: details.meaning,
         codeLocation: details.codeLocation,
         timestamp: new Date().toISOString(),
+        layer: details.layer,
+        importance: details.importance,
+        breakpointTip: details.breakpointTip,
+        changeSummary: details.changeSummary,
+        graphColumn: details.graphColumn,
+        graphRow: details.graphRow,
+        graphParents: details.graphParents,
       };
 
       nextCheckpointId += 1;
@@ -369,6 +458,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       flowSteps,
+      runtimeFlowSteps,
       activeStepId,
       selectedStepId,
       selectedStep:
@@ -413,6 +503,7 @@ export function RuntimeProvider({ children }: { children: ReactNode }) {
       captureStateDiff,
       checkpoints,
       flowSteps,
+      runtimeFlowSteps,
       observe,
       pushRuntimeFlowStep,
       refreshRuntimeSnapshot,
