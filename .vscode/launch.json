@@ -4,7 +4,7 @@
     {
       "type": "pwa-chrome",
       "request": "attach",
-      "name": "Attach Chrome from 0-run-local.bat",
+      "name": "Attach Chrome local debug",
       "address": "localhost",
       "port": 9222,
       "urlFilter": "*://*:5173/*",
@@ -16,7 +16,7 @@
     {
       "type": "pwa-msedge",
       "request": "attach",
-      "name": "Attach Edge from 0-run-local.bat",
+      "name": "Attach Edge local debug",
       "address": "localhost",
       "port": 9222,
       "urlFilter": "*://*:5173/*",

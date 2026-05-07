@@ -13,6 +13,18 @@ npm install
 npm run dev
 ```
 
+## Local Scripts
+
+Windows:
+
+- `scripts/win/0-run-local.bat`
+- `scripts/win/1-kill-local.bat`
+
+macOS:
+
+- `scripts/mac/0-run-local.command`
+- `scripts/mac/1-kill-local.command`
+
 ## Mock Query String
 
 API responses are controlled from the browser URL:

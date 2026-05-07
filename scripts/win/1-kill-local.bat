@@ -2,7 +2,7 @@
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-set "APP_DIR=%SCRIPT_DIR%.."
+set "APP_DIR=%SCRIPT_DIR%..\.."
 set "PORT=5173"
 set "DEBUG_PORT=9222"
 

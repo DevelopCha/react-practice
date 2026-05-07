@@ -7,3 +7,7 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 .vscode/debug-browser-profile/
+node-v*-darwin-arm64/
+node-v*-darwin-arm64.tar.xz
+.vite-dev.log
+.vite-dev.pid

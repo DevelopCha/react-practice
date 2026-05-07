@@ -2,7 +2,7 @@
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-set "APP_DIR=%SCRIPT_DIR%.."
+set "APP_DIR=%SCRIPT_DIR%..\.."
 set "PORT=5173"
 set "DEBUG_PORT=9222"
 set "URL=http://localhost:%PORT%/"
@@ -97,8 +97,8 @@ if not errorlevel 1 (
 
 echo.
 echo [NEXT] In VSCode Run and Debug, select:
-echo        Attach Chrome from 0-run-local.bat
-echo        or Attach Edge from 0-run-local.bat
+echo        Attach Chrome local debug
+echo        or Attach Edge local debug
 echo        then press F5.
 echo.
 echo [TIP] Toggle a Timeline step, run the flow again, and VSCode will pause at the real source line.
